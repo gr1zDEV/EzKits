@@ -21,12 +21,18 @@ public class SQLitePlayerKitStorage implements PlayerKitStorage {
     }
 
     @Override
-    public void initialize() {
+    public synchronized void initialize() {
         try {
+            if (!plugin.getDataFolder().exists() && !plugin.getDataFolder().mkdirs()) {
+                throw new IllegalStateException("Could not create plugin data folder");
+            }
             File dbFile = new File(plugin.getDataFolder(), "data.db");
             String url = "jdbc:sqlite:" + dbFile.getAbsolutePath();
             connection = DriverManager.getConnection(url);
+
             try (Statement statement = connection.createStatement()) {
+                statement.execute("PRAGMA journal_mode=WAL");
+                statement.execute("PRAGMA synchronous=NORMAL");
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS player_kits (" +
                         "uuid TEXT NOT NULL," +
                         "kit_id TEXT NOT NULL," +
@@ -41,7 +47,10 @@ public class SQLitePlayerKitStorage implements PlayerKitStorage {
     }
 
     @Override
-    public long getCooldownExpiry(UUID playerId, String kitId) {
+    public synchronized long getCooldownExpiry(UUID playerId, String kitId) {
+        if (!isReady()) {
+            return 0;
+        }
         String sql = "SELECT cooldown_expiry FROM player_kits WHERE uuid = ? AND kit_id = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, playerId.toString());
@@ -58,7 +67,10 @@ public class SQLitePlayerKitStorage implements PlayerKitStorage {
     }
 
     @Override
-    public boolean isOneTimeClaimed(UUID playerId, String kitId) {
+    public synchronized boolean isOneTimeClaimed(UUID playerId, String kitId) {
+        if (!isReady()) {
+            return false;
+        }
         String sql = "SELECT one_time_claimed FROM player_kits WHERE uuid = ? AND kit_id = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, playerId.toString());
@@ -73,13 +85,16 @@ public class SQLitePlayerKitStorage implements PlayerKitStorage {
     }
 
     @Override
-    public void markClaimed(UUID playerId, String kitId, long cooldownExpiry, boolean oneTimeClaimed) {
+    public synchronized void markClaimed(UUID playerId, String kitId, long cooldownExpiry, boolean oneTimeClaimed) {
+        if (!isReady()) {
+            return;
+        }
         String sql = "INSERT INTO player_kits(uuid, kit_id, cooldown_expiry, one_time_claimed) VALUES(?, ?, ?, ?) " +
                 "ON CONFLICT(uuid, kit_id) DO UPDATE SET cooldown_expiry = excluded.cooldown_expiry, one_time_claimed = excluded.one_time_claimed";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, playerId.toString());
             stmt.setString(2, kitId);
-            stmt.setLong(3, cooldownExpiry);
+            stmt.setLong(3, Math.max(0, cooldownExpiry));
             stmt.setInt(4, oneTimeClaimed ? 1 : 0);
             stmt.executeUpdate();
         } catch (SQLException e) {
@@ -88,12 +103,23 @@ public class SQLitePlayerKitStorage implements PlayerKitStorage {
     }
 
     @Override
-    public void close() {
+    public synchronized void close() {
         if (connection != null) {
             try {
                 connection.close();
-            } catch (SQLException ignored) {
+            } catch (SQLException e) {
+                plugin.getLogger().warning("Failed to close SQLite connection: " + e.getMessage());
+            } finally {
+                connection = null;
             }
         }
+    }
+
+    private boolean isReady() {
+        if (connection == null) {
+            plugin.getLogger().warning("SQLite connection is not initialized.");
+            return false;
+        }
+        return true;
     }
 }

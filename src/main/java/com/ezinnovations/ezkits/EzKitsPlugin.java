@@ -13,6 +13,7 @@ import com.ezinnovations.ezkits.storage.PlayerKitStorage;
 import com.ezinnovations.ezkits.storage.SQLitePlayerKitStorage;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class EzKitsPlugin extends JavaPlugin {
@@ -28,23 +29,29 @@ public final class EzKitsPlugin extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
 
-        this.configManager = new ConfigManager(this);
-        this.configManager.loadAll();
+        try {
+            this.configManager = new ConfigManager(this);
+            this.configManager.loadAll();
 
-        this.kitManager = new KitManager(this, configManager);
-        this.kitManager.loadKits();
+            this.kitManager = new KitManager(this, configManager);
+            this.kitManager.loadKits();
 
-        this.storage = new SQLitePlayerKitStorage(this);
-        this.storage.initialize();
+            this.storage = new SQLitePlayerKitStorage(this);
+            this.storage.initialize();
 
-        this.messageService = new MessageService(configManager);
-        this.claimService = new ClaimService(this, kitManager, storage, messageService, configManager);
-        this.guiService = new GuiService(this, kitManager, claimService, messageService, configManager);
+            this.messageService = new MessageService(configManager);
+            this.claimService = new ClaimService(this, kitManager, storage, messageService, configManager);
+            this.guiService = new GuiService(this, kitManager, claimService, configManager);
 
-        registerCommands();
-        Bukkit.getPluginManager().registerEvents(new GuiListener(guiService), this);
+            registerCommands();
+            Bukkit.getPluginManager().registerEvents(new GuiListener(guiService), this);
 
-        getLogger().info("EzKits enabled successfully.");
+            getLogger().info("EzKits enabled successfully. Loaded " + kitManager.getKitCount() + " kits.");
+        } catch (Exception ex) {
+            getLogger().severe("Failed to enable EzKits: " + ex.getMessage());
+            ex.printStackTrace();
+            Bukkit.getPluginManager().disablePlugin(this);
+        }
     }
 
     @Override
@@ -57,7 +64,7 @@ public final class EzKitsPlugin extends JavaPlugin {
     private void registerCommands() {
         registerCommand("kits", new KitsCommand(guiService, messageService));
         registerCommand("kit", new KitCommand(kitManager, claimService, guiService, messageService));
-        registerCommand("ezkits", new EzKitsAdminCommand(this, kitManager, claimService, guiService, messageService, configManager));
+        registerCommand("ezkits", new EzKitsAdminCommand(this, kitManager, claimService, guiService, messageService));
     }
 
     private void registerCommand(String name, org.bukkit.command.CommandExecutor executor) {
@@ -66,7 +73,7 @@ public final class EzKitsPlugin extends JavaPlugin {
             throw new IllegalStateException("Missing command in plugin.yml: " + name);
         }
         command.setExecutor(executor);
-        if (executor instanceof org.bukkit.command.TabCompleter tabCompleter) {
+        if (executor instanceof TabCompleter tabCompleter) {
             command.setTabCompleter(tabCompleter);
         }
     }
@@ -74,5 +81,6 @@ public final class EzKitsPlugin extends JavaPlugin {
     public void reloadPlugin() {
         configManager.loadAll();
         kitManager.loadKits();
+        getLogger().info("EzKits reloaded. Loaded " + kitManager.getKitCount() + " kits.");
     }
 }
