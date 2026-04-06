@@ -48,7 +48,7 @@ Each file in `/kits` supports:
 - optional `sounds.success` and `sounds.fail`
 
 ## Build
-Requires Java 17+.
+Requires Java 21+.
 
 ```bash
 mvn clean package
