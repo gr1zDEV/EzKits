@@ -1,7 +1,6 @@
 package com.ezinnovations.ezkits.command;
 
 import com.ezinnovations.ezkits.EzKitsPlugin;
-import com.ezinnovations.ezkits.config.ConfigManager;
 import com.ezinnovations.ezkits.gui.GuiService;
 import com.ezinnovations.ezkits.kit.KitDefinition;
 import com.ezinnovations.ezkits.kit.KitManager;
@@ -26,15 +25,13 @@ public class EzKitsAdminCommand implements CommandExecutor, TabCompleter {
     private final ClaimService claimService;
     private final GuiService guiService;
     private final MessageService messageService;
-    private final ConfigManager configManager;
 
-    public EzKitsAdminCommand(EzKitsPlugin plugin, KitManager kitManager, ClaimService claimService, GuiService guiService, MessageService messageService, ConfigManager configManager) {
+    public EzKitsAdminCommand(EzKitsPlugin plugin, KitManager kitManager, ClaimService claimService, GuiService guiService, MessageService messageService) {
         this.plugin = plugin;
         this.kitManager = kitManager;
         this.claimService = claimService;
         this.guiService = guiService;
         this.messageService = messageService;
-        this.configManager = configManager;
     }
 
     @Override
@@ -76,6 +73,8 @@ public class EzKitsAdminCommand implements CommandExecutor, TabCompleter {
                 ClaimResult result = claimService.claim(target, kit.id(), true);
                 if (result == ClaimResult.SUCCESS) {
                     messageService.send(sender, "admin.give-success", Map.of("%player%", target.getName(), "%kit_name%", kit.id()));
+                } else {
+                    messageService.send(sender, "admin.give-failed", Map.of("%player%", target.getName(), "%kit_name%", kit.id(), "%reason%", result.name()));
                 }
             }
             case "open" -> {
