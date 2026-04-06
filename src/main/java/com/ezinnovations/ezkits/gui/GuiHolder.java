@@ -8,6 +8,7 @@ public class GuiHolder implements InventoryHolder {
 
     private final MenuType menuType;
     private final KitDefinition previewKit;
+    private Inventory inventory;
 
     public GuiHolder(MenuType menuType, KitDefinition previewKit) {
         this.menuType = menuType;
@@ -16,7 +17,7 @@ public class GuiHolder implements InventoryHolder {
 
     @Override
     public Inventory getInventory() {
-        return null;
+        return inventory;
     }
 
     public MenuType getMenuType() {
@@ -25,5 +26,9 @@ public class GuiHolder implements InventoryHolder {
 
     public KitDefinition getPreviewKit() {
         return previewKit;
+    }
+
+    void setInventory(Inventory inventory) {
+        this.inventory = inventory;
     }
 }

@@ -38,6 +38,13 @@ public class ClaimService {
             return ClaimResult.KIT_NOT_FOUND;
         }
 
+        if (kit.hidden() && !configManager.getMainConfig().getBoolean("general.allow-hidden-direct-claim", false)) {
+            if (notify) {
+                messageService.send(player, "kit.not-found", Map.of("%kit_name%", kitName));
+            }
+            return ClaimResult.KIT_NOT_FOUND;
+        }
+
         KitState state = resolveState(player, kit);
         if (state != KitState.AVAILABLE) {
             if (notify) {
@@ -54,13 +61,24 @@ public class ClaimService {
         List<ItemStack> safeItems = kit.safeItems().stream().map(ItemStack::clone).toList();
         Map<Integer, ItemStack> leftovers = player.getInventory().addItem(safeItems.toArray(new ItemStack[0]));
 
-        if (!leftovers.isEmpty() && configManager.getMainConfig().getBoolean("general.drop-leftovers", true)) {
-            leftovers.values().forEach(item -> player.getWorld().dropItemNaturally(player.getLocation(), item));
+        if (!leftovers.isEmpty()) {
+            if (configManager.getMainConfig().getBoolean("general.drop-leftovers", true)) {
+                leftovers.values().forEach(item -> player.getWorld().dropItemNaturally(player.getLocation(), item));
+            } else if (notify) {
+                messageService.send(player, "kit.inventory-full");
+            }
         }
 
         for (String command : kit.commands()) {
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(),
-                    command.replace("%player%", player.getName()).replace("%kit%", kit.id()));
+            if (command == null || command.isBlank()) {
+                continue;
+            }
+            try {
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(),
+                        command.replace("%player%", player.getName()).replace("%kit%", kit.id()));
+            } catch (Exception ex) {
+                plugin.getLogger().warning("Failed to execute kit command for '" + kit.id() + "': " + command + " - " + ex.getMessage());
+            }
         }
 
         long expiry = kit.cooldownSeconds() <= 0 ? 0 : (System.currentTimeMillis() / 1000L) + kit.cooldownSeconds();
