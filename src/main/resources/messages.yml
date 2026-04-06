@@ -1,0 +1,20 @@
+general:
+  no-permission: "&cYou do not have permission."
+  players-only: "&cOnly players can use this command."
+
+kit:
+  not-found: "&cKit '&f%kit_name%&c' was not found."
+  claim-success: "&aYou claimed &f%kit_displayname%&a."
+  claim-success-actionbar: "&aClaimed %kit_displayname%"
+  locked: "&cYou do not have access to &f%kit_displayname%&c."
+  cooldown: "&eYou can claim &f%kit_displayname% &eagain in &f%cooldown%&e."
+  one-time-claimed: "&cYou already claimed one-time kit &f%kit_displayname%&c."
+
+admin:
+  usage: "&eUsage: /ezkits <reload|give|open>"
+  give-usage: "&eUsage: /ezkits give <player> <kit>"
+  open-usage: "&eUsage: /ezkits open <player>"
+  reload-success: "&aEzKits was reloaded."
+  give-success: "&aGave kit &f%kit_name% &ato &f%player%&a."
+  open-success: "&aOpened kits GUI for &f%player%&a."
+  player-not-found: "&cPlayer '&f%player%&c' is not online."
