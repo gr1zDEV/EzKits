@@ -9,6 +9,8 @@ kit:
   locked: "&cYou do not have access to &f%kit_displayname%&c."
   cooldown: "&eYou can claim &f%kit_displayname% &eagain in &f%cooldown%&e."
   one-time-claimed: "&cYou already claimed one-time kit &f%kit_displayname%&c."
+  preview-disabled: "&cPreview is disabled for &f%kit_displayname%&c."
+  inventory-full: "&eYour inventory is full. Extra kit items could not be delivered."
 
 admin:
   usage: "&eUsage: /ezkits <reload|give|open>"
@@ -16,5 +18,6 @@ admin:
   open-usage: "&eUsage: /ezkits open <player>"
   reload-success: "&aEzKits was reloaded."
   give-success: "&aGave kit &f%kit_name% &ato &f%player%&a."
+  give-failed: "&cCould not give &f%kit_name% &cto &f%player%&c (%reason%)."
   open-success: "&aOpened kits GUI for &f%player%&a."
   player-not-found: "&cPlayer '&f%player%&c' is not online."

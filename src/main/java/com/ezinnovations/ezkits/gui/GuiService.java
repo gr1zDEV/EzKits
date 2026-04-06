@@ -6,11 +6,11 @@ import com.ezinnovations.ezkits.kit.KitDefinition;
 import com.ezinnovations.ezkits.kit.KitManager;
 import com.ezinnovations.ezkits.kit.KitState;
 import com.ezinnovations.ezkits.service.ClaimService;
-import com.ezinnovations.ezkits.service.MessageService;
 import com.ezinnovations.ezkits.util.ColorUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -20,29 +20,30 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 public class GuiService {
 
     private final EzKitsPlugin plugin;
     private final KitManager kitManager;
     private final ClaimService claimService;
-    private final MessageService messageService;
     private final ConfigManager configManager;
 
-    public GuiService(EzKitsPlugin plugin, KitManager kitManager, ClaimService claimService, MessageService messageService, ConfigManager configManager) {
+    public GuiService(EzKitsPlugin plugin, KitManager kitManager, ClaimService claimService, ConfigManager configManager) {
         this.plugin = plugin;
         this.kitManager = kitManager;
         this.claimService = claimService;
-        this.messageService = messageService;
         this.configManager = configManager;
     }
 
     public void openMain(Player player) {
         String title = ColorUtil.color(configManager.getGuiConfig().getString("main.title", "&8Kits"));
-        int size = configManager.getGuiConfig().getInt("main.size", 54);
-        Inventory inventory = Bukkit.createInventory(new GuiHolder(MenuType.MAIN, null), size, title);
+        int size = sanitizeSize(configManager.getGuiConfig().getInt("main.size", 54), "main.size");
+        GuiHolder holder = new GuiHolder(MenuType.MAIN, null);
+        Inventory inventory = Bukkit.createInventory(holder, size, title);
+        holder.setInventory(inventory);
 
         fillIfEnabled(inventory, "filler");
 
@@ -63,14 +64,21 @@ public class GuiService {
     public void openPreview(Player player, KitDefinition kit) {
         String title = ColorUtil.color(configManager.getGuiConfig().getString("preview.title", "&8Preview: %kit_displayname%")
                 .replace("%kit_displayname%", kit.displayName()));
-        int size = configManager.getGuiConfig().getInt("preview.size", 54);
-        Inventory inventory = Bukkit.createInventory(new GuiHolder(MenuType.PREVIEW, kit), size, title);
+        int size = sanitizeSize(configManager.getGuiConfig().getInt("preview.size", 54), "preview.size");
+        GuiHolder holder = new GuiHolder(MenuType.PREVIEW, kit);
+        Inventory inventory = Bukkit.createInventory(holder, size, title);
+        holder.setInventory(inventory);
 
+        Set<Integer> controlSlots = getPreviewControlSlots(size);
         fillIfEnabled(inventory, "filler");
 
         List<ItemStack> items = kit.safeItems();
-        for (int i = 0; i < Math.min(items.size(), size); i++) {
-            inventory.setItem(i, items.get(i).clone());
+        int itemIndex = 0;
+        for (int slot = 0; slot < size && itemIndex < items.size(); slot++) {
+            if (controlSlots.contains(slot)) {
+                continue;
+            }
+            inventory.setItem(slot, items.get(itemIndex++).clone());
         }
 
         placeControlButton(inventory, "preview.controls.claim", kit.id());
@@ -84,17 +92,26 @@ public class GuiService {
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
-        if (!(event.getInventory().getHolder() instanceof GuiHolder holder)) {
+        if (!(event.getView().getTopInventory().getHolder() instanceof GuiHolder holder)) {
             return;
         }
 
         event.setCancelled(true);
 
-        if (holder.getMenuType() == MenuType.MAIN) {
-            handleMainClick(player, event.getSlot(), event.getCurrentItem(), event.getClick());
+        if (event.getClickedInventory() == null || !event.getClickedInventory().equals(event.getView().getTopInventory())) {
             return;
         }
-        handlePreviewClick(player, holder, event.getSlot());
+
+        int rawSlot = event.getRawSlot();
+        if (rawSlot < 0 || rawSlot >= event.getView().getTopInventory().getSize()) {
+            return;
+        }
+
+        if (holder.getMenuType() == MenuType.MAIN) {
+            handleMainClick(player, rawSlot, event.getCurrentItem(), event.getClick());
+            return;
+        }
+        handlePreviewClick(player, holder, rawSlot);
     }
 
     private void handleMainClick(Player player, int slot, ItemStack clickedItem, ClickType clickType) {
@@ -164,7 +181,7 @@ public class GuiService {
                 dynamicLore.add(applyKitPlaceholders(player, kit, statusName, line));
             }
             if (stateSection.getBoolean("glow", false)) {
-                meta.addEnchant(org.bukkit.enchantments.Enchantment.LUCK_OF_THE_SEA, 1, true);
+                meta.addEnchant(Enchantment.LUCK_OF_THE_SEA, 1, true);
                 meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
             }
         }
@@ -189,6 +206,7 @@ public class GuiService {
         String materialName = configManager.getGuiConfig().getString(path + ".material", "GRAY_STAINED_GLASS_PANE");
         Material material = Material.matchMaterial(materialName);
         if (material == null) {
+            plugin.getLogger().warning("Invalid filler material '" + materialName + "'. Falling back to GRAY_STAINED_GLASS_PANE.");
             material = Material.GRAY_STAINED_GLASS_PANE;
         }
         ItemStack filler = new ItemStack(material);
@@ -208,10 +226,12 @@ public class GuiService {
     private void placeControlButton(Inventory inventory, String path, String kitId) {
         int slot = configManager.getGuiConfig().getInt(path + ".slot", -1);
         if (slot < 0 || slot >= inventory.getSize()) {
+            plugin.getLogger().warning("Invalid GUI control slot at " + path + ": " + slot);
             return;
         }
         Material material = Material.matchMaterial(configManager.getGuiConfig().getString(path + ".material", "BARRIER"));
         if (material == null) {
+            plugin.getLogger().warning("Invalid GUI control material at " + path + ".material. Falling back to BARRIER.");
             material = Material.BARRIER;
         }
         ItemStack button = new ItemStack(material);
@@ -225,11 +245,29 @@ public class GuiService {
         inventory.setItem(slot, button);
     }
 
-    public MessageService getMessageService() {
-        return messageService;
+    private int sanitizeSize(int size, String path) {
+        if (size < 9 || size > 54 || size % 9 != 0) {
+            plugin.getLogger().warning("Invalid GUI size at " + path + " (" + size + "). Using 54.");
+            return 54;
+        }
+        return size;
     }
 
-    public KitManager getKitManager() {
-        return kitManager;
+    private Set<Integer> getPreviewControlSlots(int previewSize) {
+        Set<Integer> slots = new HashSet<>();
+        int claimSlot = configManager.getGuiConfig().getInt("preview.controls.claim.slot", 48);
+        int backSlot = configManager.getGuiConfig().getInt("preview.controls.back.slot", 49);
+        int closeSlot = configManager.getGuiConfig().getInt("preview.controls.close.slot", 50);
+        if (claimSlot >= 0 && claimSlot < previewSize) {
+            slots.add(claimSlot);
+        }
+        if (backSlot >= 0 && backSlot < previewSize) {
+            slots.add(backSlot);
+        }
+        if (closeSlot >= 0 && closeSlot < previewSize) {
+            slots.add(closeSlot);
+        }
+        return slots;
     }
+
 }

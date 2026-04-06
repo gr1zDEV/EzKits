@@ -57,6 +57,10 @@ public class KitCommand implements CommandExecutor, TabCompleter {
                 messageService.send(player, "kit.not-found", Map.of("%kit_name%", args[1]));
                 return true;
             }
+            if (!kit.previewEnabled()) {
+                messageService.send(player, "kit.preview-disabled", Map.of("%kit_name%", kit.id(), "%kit_displayname%", kit.displayName()));
+                return true;
+            }
             guiService.openPreview(player, kit);
             return true;
         }
