@@ -4,6 +4,7 @@ import com.ezinnovations.ezkits.config.ConfigManager;
 import com.ezinnovations.ezkits.util.ColorUtil;
 import org.bukkit.command.CommandSender;
 
+import java.util.List;
 import java.util.Map;
 
 public class MessageService {
@@ -19,6 +20,18 @@ public class MessageService {
     }
 
     public void send(CommandSender sender, String path, Map<String, String> placeholders) {
+        if (configManager.getMessagesConfig().isList(path)) {
+            List<String> lines = configManager.getMessagesConfig().getStringList(path);
+            if (lines.isEmpty()) {
+                sender.sendMessage(ColorUtil.color("&cMissing message: " + path));
+                return;
+            }
+            for (String line : lines) {
+                sender.sendMessage(ColorUtil.color(applyPlaceholders(line, placeholders)));
+            }
+            return;
+        }
+
         String raw = configManager.getMessagesConfig().getString(path, "&cMissing message: " + path);
         sender.sendMessage(ColorUtil.color(applyPlaceholders(raw, placeholders)));
     }

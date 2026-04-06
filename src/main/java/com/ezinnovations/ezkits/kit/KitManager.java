@@ -13,10 +13,12 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public class KitManager {
 
@@ -31,75 +33,112 @@ public class KitManager {
 
     public void loadKits() {
         kits.clear();
-        File[] files = configManager.getKitsFolder().listFiles((dir, name) -> name.endsWith(".yml"));
+        File[] files = configManager.getKitsFolder().listFiles((dir, name) -> name.toLowerCase(Locale.ROOT).endsWith(".yml"));
         if (files == null) {
+            plugin.getLogger().warning("No kit files found.");
             return;
         }
+
+        Set<Integer> usedSlots = new HashSet<>();
         for (File file : files) {
-            YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
-            String id = yaml.getString("id", file.getName().replace(".yml", "")).toLowerCase(Locale.ROOT);
-            String displayName = yaml.getString("display-name", id);
-            String permission = yaml.getString("permission", "ezkits.kit." + id);
-            int slot = yaml.getInt("slot", 0);
-            long cooldown = yaml.getLong("cooldown-seconds", 0L);
-            boolean oneTime = yaml.getBoolean("one-time", false);
-            boolean preview = yaml.getBoolean("preview-enabled", true);
-            boolean hidden = yaml.getBoolean("hidden", false);
-            String category = yaml.getString("category", "default");
+            try {
+                YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
+                String id = yaml.getString("id", file.getName().replace(".yml", "")).trim().toLowerCase(Locale.ROOT);
+                if (id.isBlank()) {
+                    plugin.getLogger().warning("Skipping kit file " + file.getName() + " because id is blank.");
+                    continue;
+                }
+                if (kits.containsKey(id)) {
+                    plugin.getLogger().warning("Duplicate kit id '" + id + "' in " + file.getName() + ". Keeping first definition.");
+                    continue;
+                }
 
-            ItemStack icon = yaml.getItemStack("icon");
-            if (icon == null) {
-                String materialName = yaml.getString("icon-material", "CHEST");
-                icon = new ItemStack(Material.matchMaterial(materialName) == null ? Material.CHEST : Material.matchMaterial(materialName));
+                int slot = yaml.getInt("slot", 0);
+                if (!usedSlots.add(slot)) {
+                    plugin.getLogger().warning("Kit '" + id + "' uses duplicate slot " + slot + ". GUI may override another kit.");
+                }
+
+                String displayName = yaml.getString("display-name", id);
+                String permission = yaml.getString("permission", "ezkits.kit." + id);
+                long cooldown = Math.max(0L, yaml.getLong("cooldown-seconds", 0L));
+                boolean oneTime = yaml.getBoolean("one-time", false);
+                boolean preview = yaml.getBoolean("preview-enabled", true);
+                boolean hidden = yaml.getBoolean("hidden", false);
+                String category = yaml.getString("category", "default");
+
+                ItemStack icon = resolveIcon(yaml, id);
+                List<String> lore = yaml.getStringList("lore");
+                List<ItemStack> items = readItems(yaml.getConfigurationSection("items"), id);
+                List<String> commands = yaml.getStringList("commands-on-claim");
+
+                Optional<Sound> successSound = parseSound(yaml.getString("sounds.success"), id);
+                Optional<Sound> failSound = parseSound(yaml.getString("sounds.fail"), id);
+
+                kits.put(id, new KitDefinition(id, displayName, permission, slot, cooldown, oneTime, preview, hidden, category, icon, lore, items, commands, successSound, failSound));
+            } catch (Exception ex) {
+                plugin.getLogger().warning("Failed to load kit file " + file.getName() + ": " + ex.getMessage());
             }
-
-            List<String> lore = yaml.getStringList("lore");
-            List<ItemStack> items = readItems(yaml.getConfigurationSection("items"));
-            List<String> commands = yaml.getStringList("commands-on-claim");
-
-            Optional<Sound> successSound = parseSound(yaml.getString("sounds.success"));
-            Optional<Sound> failSound = parseSound(yaml.getString("sounds.fail"));
-
-            kits.put(id, new KitDefinition(id, displayName, permission, slot, cooldown, oneTime, preview, hidden, category, icon, lore, items, commands, successSound, failSound));
         }
+
         plugin.getLogger().info("Loaded " + kits.size() + " kits.");
     }
 
-    private List<ItemStack> readItems(ConfigurationSection section) {
+    private ItemStack resolveIcon(YamlConfiguration yaml, String kitId) {
+        ItemStack icon = yaml.getItemStack("icon");
+        if (icon != null && icon.getType() != Material.AIR) {
+            return icon;
+        }
+
+        String materialName = yaml.getString("icon-material", "CHEST");
+        Material material = Material.matchMaterial(materialName == null ? "CHEST" : materialName);
+        if (material == null || material == Material.AIR) {
+            plugin.getLogger().warning("Invalid icon-material for kit '" + kitId + "': " + materialName + ". Falling back to CHEST.");
+            material = Material.CHEST;
+        }
+        return new ItemStack(material);
+    }
+
+    private List<ItemStack> readItems(ConfigurationSection section, String kitId) {
         List<ItemStack> items = new ArrayList<>();
         if (section == null) {
             return items;
         }
         for (String key : section.getKeys(false)) {
             ItemStack item = section.getItemStack(key);
-            if (item != null) {
-                items.add(item);
+            if (item == null || item.getType() == Material.AIR) {
+                plugin.getLogger().warning("Skipping invalid item key '" + key + "' in kit '" + kitId + "'.");
+                continue;
             }
+            items.add(item);
         }
         return items;
     }
 
-    private Optional<Sound> parseSound(String name) {
+    private Optional<Sound> parseSound(String name, String kitId) {
         if (name == null || name.isBlank()) {
             return Optional.empty();
         }
         try {
             return Optional.of(Sound.valueOf(name.toUpperCase(Locale.ROOT)));
         } catch (IllegalArgumentException ex) {
-            plugin.getLogger().warning("Invalid sound configured: " + name);
+            plugin.getLogger().warning("Invalid sound for kit '" + kitId + "': " + name);
             return Optional.empty();
         }
     }
 
     public Collection<KitDefinition> getAllKits() {
-        return kits.values().stream().sorted(Comparator.comparingInt(KitDefinition::slot)).toList();
+        return kits.values().stream().sorted(Comparator.comparingInt(KitDefinition::slot).thenComparing(KitDefinition::id)).toList();
     }
 
     public KitDefinition getKit(String name) {
-        return kits.get(name.toLowerCase(Locale.ROOT));
+        return name == null ? null : kits.get(name.toLowerCase(Locale.ROOT));
     }
 
     public List<String> getKitNames() {
         return new ArrayList<>(kits.keySet());
+    }
+
+    public int getKitCount() {
+        return kits.size();
     }
 }
