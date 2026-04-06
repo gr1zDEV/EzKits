@@ -1,0 +1,21 @@
+# EzKits by EzInnovations
+# General plugin settings.
+
+general:
+  # If true, items that cannot fit in inventory are dropped at the player location.
+  drop-leftovers: true
+  # If true, hidden kits are still claimable by direct command if known.
+  allow-hidden-direct-claim: false
+
+feedback:
+  # Play success/failure sounds when a player interacts with kits.
+  sounds-enabled: true
+  # Send actionbar feedback on successful claim.
+  actionbar-enabled: true
+
+startup:
+  # If true, kit files are generated if missing.
+  create-example-kit: true
+
+debug:
+  enabled: false

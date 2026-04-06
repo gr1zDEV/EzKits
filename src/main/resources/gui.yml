@@ -1,0 +1,61 @@
+main:
+  title: "&8EzKits"
+  size: 54
+  # If true, kits with hidden=true are not shown in the GUI.
+  hide-hidden-kits: true
+
+preview:
+  title: "&8Preview: %kit_displayname%"
+  size: 54
+  controls:
+    claim:
+      slot: 48
+      material: LIME_CONCRETE
+      name: "&aClaim %kit_name%"
+      lore:
+        - "&7Click to claim this kit."
+    back:
+      slot: 49
+      material: ARROW
+      name: "&eBack"
+      lore:
+        - "&7Return to the kits menu."
+    close:
+      slot: 50
+      material: BARRIER
+      name: "&cClose"
+      lore:
+        - "&7Close this menu."
+
+filler:
+  enabled: true
+  material: GRAY_STAINED_GLASS_PANE
+  name: " "
+
+states:
+  default-lore:
+    - "&7Status: %status%"
+    - "&7Cooldown: %cooldown%"
+    - ""
+    - "&aLeft click to claim"
+    - "&eRight click to preview"
+  available:
+    status-name: "&aAvailable"
+    glow: true
+    lore:
+      - "&aReady to claim."
+  locked:
+    status-name: "&cLocked"
+    glow: false
+    lore:
+      - "&cYou do not have permission."
+  cooldown:
+    status-name: "&eCooldown"
+    glow: false
+    lore:
+      - "&eRemaining: %cooldown%"
+  claimed:
+    status-name: "&7Claimed"
+    glow: false
+    lore:
+      - "&7This one-time kit has been claimed."

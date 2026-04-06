@@ -1,0 +1,46 @@
+# Example kit definition file.
+id: starter
+display-name: "&aStarter"
+slot: 10
+permission: ezkits.kit.starter
+cooldown-seconds: 3600
+one-time: false
+preview-enabled: true
+hidden: false
+category: default
+
+# icon can be either full ItemStack (icon:) or fallback material below.
+icon-material: CHEST
+
+lore:
+  - "&7Great first kit for new players."
+
+sounds:
+  success: ENTITY_PLAYER_LEVELUP
+  fail: BLOCK_NOTE_BLOCK_BASS
+
+commands-on-claim:
+  - "say %player% just claimed %kit%!"
+
+# Full ItemStack serialization section.
+items:
+  item1:
+    ==: org.bukkit.inventory.ItemStack
+    v: 3700
+    type: IRON_SWORD
+    meta:
+      ==: ItemMeta
+      meta-type: UNSPECIFIC
+      display-name: "§fStarter Blade"
+      enchants:
+        DAMAGE_ALL: 1
+  item2:
+    ==: org.bukkit.inventory.ItemStack
+    v: 3700
+    type: COOKED_BEEF
+    amount: 16
+  item3:
+    ==: org.bukkit.inventory.ItemStack
+    v: 3700
+    type: BREAD
+    amount: 16
