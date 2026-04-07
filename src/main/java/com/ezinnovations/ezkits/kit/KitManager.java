@@ -25,10 +25,12 @@ public class KitManager {
     private final EzKitsPlugin plugin;
     private final ConfigManager configManager;
     private final Map<String, KitDefinition> kits = new HashMap<>();
+    private final CustomItemResolver customItemResolver;
 
     public KitManager(EzKitsPlugin plugin, ConfigManager configManager) {
         this.plugin = plugin;
         this.configManager = configManager;
+        this.customItemResolver = new CustomItemResolver(plugin);
     }
 
     public void loadKits() {
@@ -104,6 +106,20 @@ public class KitManager {
             return items;
         }
         for (String key : section.getKeys(false)) {
+            ConfigurationSection itemSection = section.getConfigurationSection(key);
+            if (itemSection != null && itemSection.contains("provider") && itemSection.contains("id")) {
+                String provider = itemSection.getString("provider", "");
+                String itemId = itemSection.getString("id", "");
+                int amount = Math.max(1, itemSection.getInt("amount", 1));
+                var resolved = customItemResolver.resolve(provider, itemId, amount);
+                if (resolved.isPresent()) {
+                    items.add(resolved.get());
+                } else {
+                    plugin.getLogger().warning("Skipping custom item key '" + key + "' in kit '" + kitId + "' because provider/id could not be resolved (" + provider + ":" + itemId + ").");
+                }
+                continue;
+            }
+
             ItemStack item = section.getItemStack(key);
             if (item == null || item.getType() == Material.AIR) {
                 plugin.getLogger().warning("Skipping invalid item key '" + key + "' in kit '" + kitId + "'.");

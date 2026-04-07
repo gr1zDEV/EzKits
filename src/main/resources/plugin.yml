@@ -5,6 +5,7 @@ api-version: '1.20'
 authors: [EzInnovations]
 description: Modern GUI-first kits plugin.
 folia-supported: true
+softdepend: [Nexo, ExecutableItems]
 commands:
   kits:
     description: Opens the kits GUI.
