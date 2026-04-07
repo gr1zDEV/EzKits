@@ -20,14 +20,6 @@ public class GuiListener implements Listener {
 
     @EventHandler
     public void onInventoryDrag(InventoryDragEvent event) {
-        if (!(event.getView().getTopInventory().getHolder() instanceof GuiHolder)) {
-            return;
-        }
-
-        int topSize = event.getView().getTopInventory().getSize();
-        boolean touchesTopInventory = event.getRawSlots().stream().anyMatch(slot -> slot < topSize);
-        if (touchesTopInventory) {
-            event.setCancelled(true);
-        }
+        guiService.handleDrag(event);
     }
 }

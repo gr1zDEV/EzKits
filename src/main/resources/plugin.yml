@@ -18,7 +18,7 @@ commands:
     permission: ezkits.use
   ezkits:
     description: EzKits admin command.
-    usage: /ezkits <reload|give|open>
+    usage: /ezkits <reload|give|open|edit|create|save|discard|custom>
     permission: ezkits.admin
 permissions:
   ezkits.use:
@@ -35,9 +35,15 @@ permissions:
       ezkits.reload: true
       ezkits.give: true
       ezkits.open: true
+      ezkits.edit: true
+      ezkits.create: true
   ezkits.reload:
     default: op
   ezkits.give:
     default: op
   ezkits.open:
+    default: op
+  ezkits.edit:
+    default: op
+  ezkits.create:
     default: op

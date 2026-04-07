@@ -9,6 +9,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -156,5 +157,60 @@ public class KitManager {
 
     public int getKitCount() {
         return kits.size();
+    }
+
+    public boolean saveKitItems(String kitId, List<ItemStack> items, Map<Integer, ProviderItemRef> providerRefs, boolean createIfMissing) {
+        if (kitId == null || kitId.isBlank()) {
+            return false;
+        }
+
+        String normalizedId = kitId.toLowerCase(Locale.ROOT);
+        File file = new File(configManager.getKitsFolder(), normalizedId + ".yml");
+        YamlConfiguration yaml = file.exists() ? YamlConfiguration.loadConfiguration(file) : new YamlConfiguration();
+        if (!file.exists() && !createIfMissing) {
+            return false;
+        }
+
+        yaml.set("id", normalizedId);
+        yaml.set("display-name", yaml.getString("display-name", normalizedId));
+        yaml.set("slot", yaml.getInt("slot", Math.max(0, kits.size())));
+        yaml.set("permission", yaml.getString("permission", "ezkits.kit." + normalizedId));
+        yaml.set("cooldown-seconds", Math.max(0L, yaml.getLong("cooldown-seconds", 0L)));
+        yaml.set("one-time", yaml.getBoolean("one-time", false));
+        yaml.set("preview-enabled", yaml.getBoolean("preview-enabled", true));
+        yaml.set("hidden", yaml.getBoolean("hidden", false));
+        yaml.set("category", yaml.getString("category", "default"));
+        yaml.set("icon-material", yaml.getString("icon-material", "CHEST"));
+        yaml.set("commands-on-claim", yaml.getStringList("commands-on-claim"));
+
+        yaml.set("items", null);
+        int index = 1;
+        for (int slot = 0; slot < items.size(); slot++) {
+            ItemStack item = items.get(slot);
+            if (item == null || item.getType() == Material.AIR) {
+                continue;
+            }
+            String key = "items.item" + index++;
+            ProviderItemRef ref = providerRefs.get(slot);
+            if (ref != null) {
+                yaml.set(key + ".provider", ref.provider());
+                yaml.set(key + ".id", ref.id());
+                yaml.set(key + ".amount", Math.max(1, ref.amount()));
+            } else {
+                yaml.set(key, item);
+            }
+        }
+
+        try {
+            yaml.save(file);
+            loadKits();
+            return true;
+        } catch (IOException exception) {
+            plugin.getLogger().warning("Failed to save kit '" + normalizedId + "': " + exception.getMessage());
+            return false;
+        }
+    }
+
+    public record ProviderItemRef(String provider, String id, int amount) {
     }
 }
