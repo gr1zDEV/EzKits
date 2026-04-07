@@ -44,3 +44,13 @@ items:
     v: 3700
     type: BREAD
     amount: 16
+
+# You can also reference items from supported item providers:
+#  nexo_sword:
+#    provider: nexo
+#    id: my_nexo_sword
+#    amount: 1
+#  ei_wand:
+#    provider: executableitems
+#    id: my_ei_wand
+#    amount: 1

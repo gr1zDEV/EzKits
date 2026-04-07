@@ -44,6 +44,7 @@ Each file in `/kits` supports:
 - `icon` (full ItemStack) or `icon-material`
 - `lore`
 - `items` (full serialized ItemStacks)
+- `items` custom-provider entries (`provider` + `id` + optional `amount`) for Nexo/ExecutableItems
 - `commands-on-claim`
 - optional `sounds.success` and `sounds.fail`
 
