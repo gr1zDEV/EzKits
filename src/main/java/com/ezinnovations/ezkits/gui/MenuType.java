@@ -2,5 +2,6 @@ package com.ezinnovations.ezkits.gui;
 
 public enum MenuType {
     MAIN,
-    PREVIEW
+    PREVIEW,
+    ADMIN_EDITOR
 }

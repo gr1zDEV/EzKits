@@ -90,6 +90,86 @@ public class EzKitsAdminCommand implements CommandExecutor, TabCompleter {
                 guiService.openMain(target);
                 messageService.send(sender, "admin.open-success", Map.of("%player%", target.getName()));
             }
+            case "edit" -> {
+                if (!(sender instanceof Player player)) {
+                    messageService.send(sender, "general.players-only");
+                    return true;
+                }
+                if (!sender.hasPermission("ezkits.edit") || args.length < 2) {
+                    messageService.send(sender, "admin.edit-usage");
+                    return true;
+                }
+                if (guiService.openAdminEditor(player, args[1], false)) {
+                    messageService.send(sender, "admin.edit-opened", Map.of("%kit_name%", args[1]));
+                } else {
+                    messageService.send(sender, "kit.not-found", Map.of("%kit_name%", args[1]));
+                }
+            }
+            case "create" -> {
+                if (!(sender instanceof Player player)) {
+                    messageService.send(sender, "general.players-only");
+                    return true;
+                }
+                if (!sender.hasPermission("ezkits.create") || args.length < 2) {
+                    messageService.send(sender, "admin.create-usage");
+                    return true;
+                }
+                guiService.openAdminEditor(player, args[1], true);
+                messageService.send(sender, "admin.create-opened", Map.of("%kit_name%", args[1]));
+            }
+            case "save" -> {
+                if (!(sender instanceof Player player)) {
+                    messageService.send(sender, "general.players-only");
+                    return true;
+                }
+                if (!sender.hasPermission("ezkits.edit")) {
+                    messageService.send(sender, "general.no-permission");
+                    return true;
+                }
+                if (guiService.saveAdminSession(player)) {
+                    messageService.send(sender, "admin.save-success");
+                } else {
+                    messageService.send(sender, "admin.no-editor-session");
+                }
+            }
+            case "discard" -> {
+                if (!(sender instanceof Player player)) {
+                    messageService.send(sender, "general.players-only");
+                    return true;
+                }
+                if (!sender.hasPermission("ezkits.edit")) {
+                    messageService.send(sender, "general.no-permission");
+                    return true;
+                }
+                guiService.discardAdminSession(player);
+                messageService.send(sender, "admin.discarded");
+            }
+            case "custom" -> {
+                if (!(sender instanceof Player player)) {
+                    messageService.send(sender, "general.players-only");
+                    return true;
+                }
+                if (!sender.hasPermission("ezkits.edit") || args.length < 4) {
+                    messageService.send(sender, "admin.custom-usage");
+                    return true;
+                }
+                int slot;
+                int amount = 1;
+                try {
+                    slot = Integer.parseInt(args[1]);
+                    if (args.length >= 5) {
+                        amount = Integer.parseInt(args[4]);
+                    }
+                } catch (NumberFormatException exception) {
+                    messageService.send(sender, "admin.custom-usage");
+                    return true;
+                }
+                if (guiService.setCustomRef(player, slot, args[2], args[3], amount)) {
+                    messageService.send(sender, "admin.custom-success", Map.of("%slot%", String.valueOf(slot), "%provider%", args[2], "%id%", args[3]));
+                } else {
+                    messageService.send(sender, "admin.no-editor-session");
+                }
+            }
             default -> messageService.send(sender, "admin.usage");
         }
 
@@ -99,7 +179,7 @@ public class EzKitsAdminCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return List.of("reload", "give", "open").stream()
+            return List.of("reload", "give", "open", "edit", "create", "save", "discard", "custom").stream()
                     .filter(v -> v.startsWith(args[0].toLowerCase(Locale.ROOT))).toList();
         }
         if (args.length == 2 && (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("open"))) {
@@ -110,6 +190,14 @@ public class EzKitsAdminCommand implements CommandExecutor, TabCompleter {
         if (args.length == 3 && args[0].equalsIgnoreCase("give")) {
             return kitManager.getKitNames().stream()
                     .filter(v -> v.toLowerCase(Locale.ROOT).startsWith(args[2].toLowerCase(Locale.ROOT))).toList();
+        }
+        if (args.length == 2 && (args[0].equalsIgnoreCase("edit") || args[0].equalsIgnoreCase("create"))) {
+            return kitManager.getKitNames().stream()
+                    .filter(v -> v.toLowerCase(Locale.ROOT).startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("custom")) {
+            return List.of("nexo", "executableitems").stream()
+                    .filter(v -> v.startsWith(args[2].toLowerCase(Locale.ROOT))).toList();
         }
         return List.of();
     }

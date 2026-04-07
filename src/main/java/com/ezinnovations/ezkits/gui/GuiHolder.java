@@ -8,11 +8,17 @@ public class GuiHolder implements InventoryHolder {
 
     private final MenuType menuType;
     private final KitDefinition previewKit;
+    private final String adminKitId;
     private Inventory inventory;
 
     public GuiHolder(MenuType menuType, KitDefinition previewKit) {
+        this(menuType, previewKit, null);
+    }
+
+    public GuiHolder(MenuType menuType, KitDefinition previewKit, String adminKitId) {
         this.menuType = menuType;
         this.previewKit = previewKit;
+        this.adminKitId = adminKitId;
     }
 
     @Override
@@ -26,6 +32,10 @@ public class GuiHolder implements InventoryHolder {
 
     public KitDefinition getPreviewKit() {
         return previewKit;
+    }
+
+    public String getAdminKitId() {
+        return adminKitId;
     }
 
     void setInventory(Inventory inventory) {

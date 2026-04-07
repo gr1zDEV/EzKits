@@ -14,15 +14,20 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 public class GuiService {
 
@@ -30,6 +35,7 @@ public class GuiService {
     private final KitManager kitManager;
     private final ClaimService claimService;
     private final ConfigManager configManager;
+    private final Map<UUID, AdminEditorSession> adminSessions = new HashMap<>();
 
     public GuiService(EzKitsPlugin plugin, KitManager kitManager, ClaimService claimService, ConfigManager configManager) {
         this.plugin = plugin;
@@ -96,6 +102,11 @@ public class GuiService {
             return;
         }
 
+        if (holder.getMenuType() == MenuType.ADMIN_EDITOR) {
+            handleAdminEditorClick(event, player, holder);
+            return;
+        }
+
         event.setCancelled(true);
 
         if (event.getClickedInventory() == null || !event.getClickedInventory().equals(event.getView().getTopInventory())) {
@@ -112,6 +123,146 @@ public class GuiService {
             return;
         }
         handlePreviewClick(player, holder, rawSlot);
+    }
+
+    public void handleDrag(InventoryDragEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+        if (!(event.getView().getTopInventory().getHolder() instanceof GuiHolder holder)) {
+            return;
+        }
+        if (holder.getMenuType() != MenuType.ADMIN_EDITOR) {
+            int topSize = event.getView().getTopInventory().getSize();
+            boolean touchesTopInventory = event.getRawSlots().stream().anyMatch(slot -> slot < topSize);
+            if (touchesTopInventory) {
+                event.setCancelled(true);
+            }
+            return;
+        }
+
+        AdminEditorSession session = adminSessions.get(player.getUniqueId());
+        if (session == null) {
+            event.setCancelled(true);
+            return;
+        }
+
+        boolean touchesControl = event.getRawSlots().stream()
+                .filter(slot -> slot < event.getView().getTopInventory().getSize())
+                .anyMatch(session::isControlSlot);
+        if (touchesControl) {
+            event.setCancelled(true);
+        }
+    }
+
+    public boolean openAdminEditor(Player player, String kitId, boolean createIfMissing) {
+        String normalized = kitId.toLowerCase(Locale.ROOT);
+        KitDefinition kit = kitManager.getKit(normalized);
+        if (kit == null && !createIfMissing) {
+            return false;
+        }
+
+        GuiHolder holder = new GuiHolder(MenuType.ADMIN_EDITOR, null, normalized);
+        Inventory inventory = Bukkit.createInventory(holder, 54, ColorUtil.color("&8Edit Kit: &f" + normalized));
+        holder.setInventory(inventory);
+
+        if (kit != null) {
+            List<ItemStack> items = kit.safeItems();
+            for (int slot = 0; slot < 45 && slot < items.size(); slot++) {
+                inventory.setItem(slot, items.get(slot).clone());
+            }
+        }
+
+        setEditorControl(inventory, 45, Material.LIME_CONCRETE, "&aSave kit");
+        setEditorControl(inventory, 46, Material.BOOK, "&eMark custom (use /ezkits custom <slot> <provider> <id> [amount])");
+        setEditorControl(inventory, 49, Material.BARRIER, "&cClose without saving");
+        setEditorControl(inventory, 53, Material.REDSTONE_BLOCK, "&cClear items");
+
+        AdminEditorSession session = new AdminEditorSession(normalized, kit == null, inventory);
+        adminSessions.put(player.getUniqueId(), session);
+        player.openInventory(inventory);
+        return true;
+    }
+
+    public boolean saveAdminSession(Player player) {
+        AdminEditorSession session = adminSessions.get(player.getUniqueId());
+        if (session == null) {
+            return false;
+        }
+        List<ItemStack> items = new ArrayList<>();
+        for (int slot = 0; slot <= 44; slot++) {
+            ItemStack item = session.getInventory().getItem(slot);
+            items.add(item == null ? null : item.clone());
+        }
+        Map<Integer, KitManager.ProviderItemRef> refs = new HashMap<>();
+        session.getCustomRefs().forEach((slot, ref) -> refs.put(slot, new KitManager.ProviderItemRef(ref.provider(), ref.id(), ref.amount())));
+        boolean saved = kitManager.saveKitItems(session.getKitId(), items, refs, true);
+        if (saved) {
+            adminSessions.remove(player.getUniqueId());
+        }
+        return saved;
+    }
+
+    public void discardAdminSession(Player player) {
+        adminSessions.remove(player.getUniqueId());
+    }
+
+    public boolean setCustomRef(Player player, int slot, String provider, String id, int amount) {
+        AdminEditorSession session = adminSessions.get(player.getUniqueId());
+        if (session == null || !session.isEditableSlot(slot)) {
+            return false;
+        }
+        session.setCustomRef(slot, new AdminEditorSession.CustomItemRef(provider, id, Math.max(1, amount)));
+        return true;
+    }
+
+    private void handleAdminEditorClick(InventoryClickEvent event, Player player, GuiHolder holder) {
+        AdminEditorSession session = adminSessions.get(player.getUniqueId());
+        if (session == null || !session.getKitId().equalsIgnoreCase(holder.getAdminKitId())) {
+            event.setCancelled(true);
+            return;
+        }
+
+        if (event.getClickedInventory() == null) {
+            return;
+        }
+
+        int rawSlot = event.getRawSlot();
+        if (rawSlot >= 0 && rawSlot < event.getView().getTopInventory().getSize()) {
+            if (session.isControlSlot(rawSlot)) {
+                event.setCancelled(true);
+                if (rawSlot == 45) {
+                    if (saveAdminSession(player)) {
+                        player.sendMessage(ColorUtil.color("&aKit saved and reloaded."));
+                        player.closeInventory();
+                    } else {
+                        player.sendMessage(ColorUtil.color("&cCould not save this kit."));
+                    }
+                } else if (rawSlot == 49) {
+                    discardAdminSession(player);
+                    player.closeInventory();
+                } else if (rawSlot == 53) {
+                    for (int slot = 0; slot <= 44; slot++) {
+                        session.getInventory().setItem(slot, null);
+                    }
+                    session.getCustomRefs().clear();
+                }
+                return;
+            }
+            event.setCancelled(false);
+            return;
+        }
+        event.setCancelled(false);
+    }
+
+    private void setEditorControl(Inventory inventory, int slot, Material material, String name) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(ColorUtil.color(name));
+            item.setItemMeta(meta);
+        }
+        inventory.setItem(slot, item);
     }
 
     private void handleMainClick(Player player, int slot, ItemStack clickedItem, ClickType clickType) {
