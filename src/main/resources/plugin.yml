@@ -4,6 +4,7 @@ main: com.ezinnovations.ezkits.EzKitsPlugin
 api-version: '1.20'
 authors: [EzInnovations]
 description: Modern GUI-first kits plugin.
+website: https://github.com/gr1zDEV/EzKits
 folia-supported: true
 softdepend: [Nexo, ExecutableItems]
 commands:

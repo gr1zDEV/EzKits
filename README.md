@@ -4,6 +4,7 @@ EzKits is a production-ready, GUI-first Minecraft kits plugin by **EzInnovations
 
 ## Features
 - GUI-first `/kits` workflow with left-click claim and right-click preview.
+- Optional custom-item bridge for **Nexo** and **ExecutableItems** provider entries in kit definitions.
 - Direct claim with `/kit <name>` and preview with `/kit preview <name>`.
 - Dynamic kit states: available, locked, cooldown, and one-time claimed.
 - SQLite persistence (`plugins/EzKits/data.db`) for cooldown + one-time tracking.
@@ -48,6 +49,20 @@ Each file in `/kits` supports:
 - `commands-on-claim`
 - optional `sounds.success` and `sounds.fail`
 
+### Custom item provider examples
+```yaml
+items:
+  - provider: nexo
+    id: ruby_sword
+    amount: 1
+  - provider: executableitems
+    id: starter_wand
+    amount: 1
+```
+
+Provider keys are case-insensitive (`nexo`, `NEXO`, `ExecutableItems`, etc.).
+If the target plugin is missing or the item id cannot be resolved, claim feedback is shown to the player and the kit claim is safely aborted.
+
 ## Build
 Requires Java 21+.
 
@@ -60,3 +75,7 @@ The shaded plugin jar is produced in `target/`.
 ## Notes for Expansion
 - Architecture is split into command, gui, kit, storage, config, service, util, and placeholder packages.
 - `GuiService` and `ClaimService` are designed for easy expansion with future admin GUI editors.
+
+## Project Links
+- Website: https://github.com/gr1zDEV/EzKits
+- Issues: https://github.com/gr1zDEV/EzKits/issues
